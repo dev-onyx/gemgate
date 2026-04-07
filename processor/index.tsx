@@ -5,7 +5,7 @@ import './index.css';
 
 // Types
 type LogKind = 'SYS' | 'RX' | 'TX' | 'ERR';
-type Status  = 'idle' | 'connecting' | 'authenticating' | 'live';
+type Status = 'idle' | 'connecting' | 'authenticating' | 'live';
 
 interface Log { id: number; ts: string; kind: LogKind; msg: string; meta?: string; }
 interface Cfg { url: string; token: string; }
@@ -64,7 +64,7 @@ function toContents(messages: any[]): any[] {
         // All signatures cached — use proper functionCall parts
         for (const tc of m.tool_calls) {
           let args: any = {};
-          try { args = typeof tc.function?.arguments === 'string' ? JSON.parse(tc.function.arguments) : (tc.function?.arguments || {}); } catch {}
+          try { args = typeof tc.function?.arguments === 'string' ? JSON.parse(tc.function.arguments) : (tc.function?.arguments || {}); } catch { }
           parts.push({ functionCall: { name: tc.function?.name, args }, thoughtSignature: getSig(tc.id) });
         }
       } else {
@@ -144,8 +144,8 @@ function extractCalls(parts: any[], rid: string) {
 function toResponse(result: any, model: string, rid: string) {
   const parts = result?.candidates?.[0]?.content?.parts || [];
   const calls = extractCalls(parts, rid);
-  const text  = parts.filter((p: any) => p.text != null).map((p: any) => p.text).join('') || null;
-  const u     = result?.usageMetadata;
+  const text = parts.filter((p: any) => p.text != null).map((p: any) => p.text).join('') || null;
+  const u = result?.usageMetadata;
   return {
     id: `chatcmpl-${rid}`, object: 'chat.completion', created: Math.floor(Date.now() / 1000), model,
     choices: [{ index: 0, message: { role: 'assistant', content: calls.length ? null : text, ...(calls.length ? { tool_calls: calls } : {}) }, finish_reason: calls.length ? 'tool_calls' : finishReason(result?.candidates?.[0]?.finishReason) }],
@@ -155,7 +155,7 @@ function toResponse(result: any, model: string, rid: string) {
 
 function toDelta(chunk: any, model: string, rid: string, idx: number) {
   const parts = chunk?.candidates?.[0]?.content?.parts || [];
-  const text  = parts.map((p: any) => p.text || '').join('');
+  const text = parts.map((p: any) => p.text || '').join('');
   const calls = parts.filter((p: any) => p.functionCall);
   const delta: any = {};
   if (idx === 0) delta.role = 'assistant';
@@ -176,12 +176,22 @@ function toEmbedding(result: any, model: string) {
   return { object: 'list', data: [{ object: 'embedding', index: 0, embedding: v }], model, usage: { prompt_tokens: 0, total_tokens: 0 } };
 }
 
+function toImageJSON(result: any) {
+  const data = [];
+  for (const part of result?.candidates?.[0]?.content?.parts || []) {
+    if (part.inlineData?.data) {
+      data.push({ b64_json: part.inlineData.data });
+    }
+  }
+  return { created: Math.floor(Date.now() / 1000), data };
+}
+
 // Processor
 function useProcessor(cfg: Cfg | null) {
   const [status, setStatus] = useState<Status>('idle');
-  const [logs, setLogs]     = useState<Log[]>([]);
-  const [stats, setStats]   = useState<Stats>({ reqs: 0, errs: 0, latency: 0, connAt: null });
-  const ws    = useRef<WebSocket | null>(null);
+  const [logs, setLogs] = useState<Log[]>([]);
+  const [stats, setStats] = useState<Stats>({ reqs: 0, errs: 0, latency: 0, connAt: null });
+  const ws = useRef<WebSocket | null>(null);
   const retry = useRef<ReturnType<typeof setTimeout> | null>(null);
   const delay = useRef(1000);
 
@@ -194,7 +204,7 @@ function useProcessor(cfg: Cfg | null) {
     const t0 = performance.now();
     setStats((s: Stats) => ({ ...s, reqs: s.reqs + 1 }));
 
-    const raw   = payload.model || 'gemini-flash-latest';
+    const raw = payload.model || 'gemini-flash-latest';
     const model = raw.replace(/^(google|models|openai)\//i, '');
     log('RX', model, stream ? 'stream' : 'sync');
 
@@ -209,9 +219,34 @@ function useProcessor(cfg: Cfg | null) {
         return;
       }
 
-      const sys      = toSystem(payload.messages);
+      if (payload._endpoint === 'images') {
+        const ar = payload.extra_body?.aspect_ratio || payload.size?.replace('x', ':') || '1:1';
+        const parts: any[] = [];
+        if (payload.extra_body?.image) {
+          const b = payload.extra_body.image;
+          const mimeData = b.startsWith('data:') ? b.split(',')[0].split(':')[1].split(';')[0] : 'image/png';
+          const base64Data = b.startsWith('data:') ? b.split(',')[1] : b;
+          parts.push({ inlineData: { data: base64Data, mimeType: mimeData } });
+        }
+        parts.push({ text: payload.prompt || 'Generate an image' });
+
+        const r = await ai.models.generateContent({
+          model: model,
+          contents: { parts },
+          config: {
+            candidateCount: payload.n || 1,
+            imageConfig: { aspectRatio: ar },
+            safetySettings: payload.extra_body?.safety_settings || undefined
+          }
+        });
+        socket.send(JSON.stringify({ type: 'processor_response', requestId, data: toImageJSON(r) }));
+        log('TX', 'image', `${Math.round(performance.now() - t0)}ms`);
+        return;
+      }
+
+      const sys = toSystem(payload.messages);
       const contents = toContents(payload.messages);
-      const tools    = toTools(payload.tools);
+      const tools = toTools(payload.tools);
       if (!contents.length) throw { status: 400, message: 'No valid messages' };
 
       const c: any = {};
@@ -251,7 +286,7 @@ function useProcessor(cfg: Cfg | null) {
     } catch (e: any) {
       setStats((s: Stats) => ({ ...s, errs: s.errs + 1 }));
       log('ERR', `${e.status || e.code || '?'}: ${e.message || 'Failed'}`);
-      try { socket.send(JSON.stringify({ type: 'error', requestId, code: String(e.status || e.code || 'UNKNOWN'), message: e.message || 'Failed', httpStatus: typeof e.status === 'number' ? e.status : 500 })); } catch {}
+      try { socket.send(JSON.stringify({ type: 'error', requestId, code: String(e.status || e.code || 'UNKNOWN'), message: e.message || 'Failed', httpStatus: typeof e.status === 'number' ? e.status : 500 })); } catch { }
     }
   }, [log]);
 
@@ -297,7 +332,7 @@ function useProcessor(cfg: Cfg | null) {
       if (m.type === 'process_request') {
         process(s, m).catch((err: any) => {
           log('ERR', err?.message || 'Unhandled');
-          try { s.send(JSON.stringify({ type: 'error', requestId: m.requestId, code: 'INTERNAL', message: err?.message || 'Unhandled', httpStatus: 500 })); } catch {}
+          try { s.send(JSON.stringify({ type: 'error', requestId: m.requestId, code: 'INTERNAL', message: err?.message || 'Unhandled', httpStatus: 500 })); } catch { }
         });
       }
     };
@@ -356,9 +391,9 @@ const DEFAULT_URL = 'ws://localhost:3777';
 
 function Setup({ onConnect, status }: { onConnect: (c: Cfg) => void; status?: Status }) {
   const s = load();
-  const [url, setUrl]     = useState(s?.url || '');
+  const [url, setUrl] = useState(s?.url || '');
   const [token, setToken] = useState(s?.token || '');
-  const [err, setErr]     = useState('');
+  const [err, setErr] = useState('');
 
   const busy = status === 'connecting' || status === 'authenticating';
 

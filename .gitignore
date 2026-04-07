@@ -5,3 +5,5 @@ dist/
 .DS_Store
 Thumbs.db
 package-lock.json
+skills-lock.json
+.agents

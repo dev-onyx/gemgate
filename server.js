@@ -13,8 +13,7 @@ import MODELS from './models.js';
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8'));
 process.title = pkg.name;
 
-// ── .env ─────────────────────────────────────────────────────────────────────
-
+// .env
 const envPath = join(process.cwd(), '.env');
 if (existsSync(envPath)) {
   for (const line of readFileSync(envPath, 'utf-8').split('\n')) {
@@ -23,11 +22,10 @@ if (existsSync(envPath)) {
   }
 }
 
-// ── Args ─────────────────────────────────────────────────────────────────────
-
+// Args
 const argv = process.argv.slice(2);
-const has  = (f) => argv.includes(`--${f}`);
-const opt  = (f, d) => { const i = argv.indexOf(`--${f}`); return (i > -1 && argv[i+1] && !argv[i+1].startsWith('--')) ? argv[i+1] : d; };
+const has = (f) => argv.includes(`--${f}`);
+const opt = (f, d) => { const i = argv.indexOf(`--${f}`); return (i > -1 && argv[i + 1] && !argv[i + 1].startsWith('--')) ? argv[i + 1] : d; };
 
 if (has('help') || has('h')) {
   console.log(`
@@ -56,22 +54,20 @@ if (has('help') || has('h')) {
   process.exit(0);
 }
 
-// ── Config ───────────────────────────────────────────────────────────────────
-
+// Config
 const PORT = parseInt(opt('port', process.env.PORT || '3777'), 10);
 if (!Number.isFinite(PORT) || PORT < 1 || PORT > 65535) {
   console.error(chalk.red(`  ✗ Invalid port: ${opt('port', process.env.PORT)}`));
   process.exit(1);
 }
 
-const API_KEY    = process.env.GEMGATE_KEY  || crypto.randomBytes(24).toString('base64url');
+const API_KEY = process.env.GEMGATE_KEY || crypto.randomBytes(24).toString('base64url');
 const PROC_TOKEN = process.env.GEMGATE_PROC || crypto.randomBytes(24).toString('base64url');
-const TIMEOUT    = parseInt(process.env.REQUEST_TIMEOUT || '120000', 10);
-const MAX_BODY   = 10 * 1024 * 1024;
-const TUNNEL     = !has('no-tunnel');
+const TIMEOUT = parseInt(process.env.REQUEST_TIMEOUT || '120000', 10);
+const MAX_BODY = 10 * 1024 * 1024;
+const TUNNEL = !has('no-tunnel');
 
-// ── Internals ────────────────────────────────────────────────────────────────
-
+// Internals
 function safeEq(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
   const ba = Buffer.from(a), bb = Buffer.from(b);
@@ -87,21 +83,21 @@ function latency(ms) {
   return chalk.red(s);
 }
 const log = {
-  ok:   (m) => console.log(`  ${chalk.green('✓')} ${m}`),
+  ok: (m) => console.log(`  ${chalk.green('✓')} ${m}`),
   info: (m) => console.log(`  ${chalk.dim('·')} ${m}`),
   warn: (m) => console.log(`  ${chalk.yellow('!')} ${m}`),
-  err:  (m) => console.log(`  ${chalk.red('✗')} ${m}`),
-  req:  (model, detail) => console.log(`  ${ts()}  ${chalk.dim('▶')}  ${pad(model, 28)} ${chalk.dim(detail)}`),
-  res:  (model, ms) =>     console.log(`  ${ts()}  ${chalk.green('✓')}  ${pad(model, 28)} ${latency(ms)}`),
+  err: (m) => console.log(`  ${chalk.red('✗')} ${m}`),
+  req: (model, detail) => console.log(`  ${ts()}  ${chalk.dim('▶')}  ${pad(model, 28)} ${chalk.dim(detail)}`),
+  res: (model, ms) => console.log(`  ${ts()}  ${chalk.green('✓')}  ${pad(model, 28)} ${latency(ms)}`),
   fail: (model, detail) => console.log(`  ${ts()}  ${chalk.red('✗')}  ${pad(model, 28)} ${chalk.red(detail)}`),
 };
 
 const processors = new Map();
-const pending    = new Map();
-const stats      = { reqs: 0, errs: 0, start: null };
+const pending = new Map();
+const stats = { reqs: 0, errs: 0, start: null };
 const MODELS_BUF = JSON.stringify({ object: 'list', data: MODELS });
-let spinner      = null;
-let halting      = false;
+let spinner = null;
+let halting = false;
 
 function body(req) {
   return new Promise((resolve, reject) => {
@@ -112,8 +108,8 @@ function body(req) {
   });
 }
 
-function pick() { for (const [k,w] of processors) if (w.readyState === WebSocket.OPEN) return {ws:w,key:k}; return null; }
-function emit(ws, d) { if (ws?.readyState === WebSocket.OPEN) try { ws.send(JSON.stringify(d)); } catch {} }
+function pick() { for (const [k, w] of processors) if (w.readyState === WebSocket.OPEN) return { ws: w, key: k }; return null; }
+function emit(ws, d) { if (ws?.readyState === WebSocket.OPEN) try { ws.send(JSON.stringify(d)); } catch { } }
 function sse(r, d) { r.write(`data: ${JSON.stringify(d)}\n\n`); }
 function cleanup(id) { const r = pending.get(id); if (r?.timer) clearTimeout(r.timer); pending.delete(id); }
 
@@ -143,10 +139,8 @@ function auth(req, res) {
 
 function waiting() { spinner = ora({ text: chalk.dim('Waiting for processor…'), color: 'white', indent: 2 }).start(); }
 
-// ── HTTP ─────────────────────────────────────────────────────────────────────
-// CORS is intentionally permissive — this is a local relay accepting requests
+// HTTP// CORS is intentionally permissive — this is a local relay accepting requests
 // from any client (Cursor, Continue, Cody, custom scripts, etc.)
-
 const server = createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -182,9 +176,9 @@ const server = createServer(async (req, res) => {
     const proc = pick();
     if (!proc) return err(res, 503, 'No processor connected', 'unavailable');
 
-    const id   = `req_${crypto.randomBytes(12).toString('hex')}`;
+    const id = `req_${crypto.randomBytes(12).toString('hex')}`;
     const strm = b.stream === true;
-    const mdl  = b.model || 'gemini-flash-latest';
+    const mdl = b.model || 'gemini-flash-latest';
 
     stats.reqs++;
     pending.set(id, { res, key: proc.key, stream: strm, timer: timer(id), model: mdl, t0: Date.now() });
@@ -211,11 +205,25 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Images
+  if (req.method === 'POST' && /^\/(?:v1\/)?images\/generations$/.test(path)) {
+    let b; try { b = await body(req); } catch { return err(res, 400, 'Invalid request body'); }
+    const proc = pick();
+    if (!proc) return err(res, 503, 'No processor connected', 'unavailable');
+
+    const id = `img_${crypto.randomBytes(12).toString('hex')}`;
+    stats.reqs++;
+    pending.set(id, { res, key: proc.key, stream: false, timer: timer(id), model: b.model, t0: Date.now() });
+
+    log.req('images', b.model || '?');
+    emit(proc.ws, { type: 'process_request', requestId: id, payload: { ...b, _endpoint: 'images' }, stream: false });
+    return;
+  }
+
   err(res, 404, `${req.method} ${path} not found`, 'not_found');
 });
 
-// ── WebSocket ────────────────────────────────────────────────────────────────
-
+// WebSocket
 const wss = new WebSocketServer({ server, maxPayload: 50 * 1024 * 1024 });
 
 wss.on('connection', (ws) => {
@@ -278,7 +286,7 @@ wss.on('connection', (ws) => {
     if (!ws.key) return;
     processors.delete(ws.key);
     log.warn(`Processor disconnected ${chalk.dim(ws.key.slice(0, 8))}`);
-    const orphans = [...pending.entries()].filter(([,r]) => r.key === ws.key && !r.res.writableEnded).map(([id]) => id);
+    const orphans = [...pending.entries()].filter(([, r]) => r.key === ws.key && !r.res.writableEnded).map(([id]) => id);
     for (const id of orphans) {
       const r = pending.get(id);
       if (r.stream) { sse(r.res, { error: { message: 'Processor disconnected', type: 'unavailable' } }); r.res.write('data: [DONE]\n\n'); r.res.end(); }
@@ -289,12 +297,10 @@ wss.on('connection', (ws) => {
   });
 });
 
-// ── Heartbeat ────────────────────────────────────────────────────────────────
-
+// Heartbeat
 const hb = setInterval(() => { wss.clients.forEach(w => { if (!w.alive) return w.terminate(); w.alive = false; w.ping(); }); }, 30_000);
 
-// ── Tunnel ───────────────────────────────────────────────────────────────────
-
+// Tunnel
 async function tunnel() {
   let tok = process.env.NGROK_AUTHTOKEN;
   if (!tok) {
@@ -303,15 +309,14 @@ async function tunnel() {
       join(process.env.HOME || '', '.config', 'ngrok', 'ngrok.yml'),
       join(process.env.HOME || '', 'Library', 'Application Support', 'ngrok', 'ngrok.yml'),
     ]) {
-      try { const m = readFileSync(p, 'utf-8').match(/authtoken:\s*["']?([^\s"']+)/); if (m) { tok = m[1]; break; } } catch {}
+      try { const m = readFileSync(p, 'utf-8').match(/authtoken:\s*["']?([^\s"']+)/); if (m) { tok = m[1]; break; } } catch { }
     }
   }
   if (!tok) throw new Error('No ngrok authtoken. Set NGROK_AUTHTOKEN or run: ngrok config add-authtoken <token>');
   return (await ngrok.forward({ addr: PORT, authtoken: tok })).url();
 }
 
-// ── Shutdown ─────────────────────────────────────────────────────────────────
-
+// Shutdown
 function uptime() {
   const s = Math.floor((Date.now() - stats.start) / 1000);
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
@@ -335,8 +340,7 @@ process.on('SIGTERM', halt);
 process.on('uncaughtException', (e) => { console.error(`\n  ${chalk.red('✗')} ${e.message}`); halt(); });
 process.on('unhandledRejection', (e) => { console.error(`\n  ${chalk.red('✗')} ${e}`); halt(); });
 
-// ── Boot ─────────────────────────────────────────────────────────────────────
-
+// Boot
 console.clear();
 const t0 = Date.now();
 
@@ -359,7 +363,7 @@ server.listen(PORT, async () => {
   }
 
   const httpBase = url || `http://localhost:${PORT}`;
-  const wsBase   = url ? url.replace(/^http/, 'ws') : `ws://localhost:${PORT}`;
+  const wsBase = url ? url.replace(/^http/, 'ws') : `ws://localhost:${PORT}`;
 
   console.log('');
   console.log(`  ${chalk.dim('Endpoint')}    ${chalk.white(httpBase)}`);
