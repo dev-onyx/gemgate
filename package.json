@@ -1,0 +1,35 @@
+{
+  "name": "gemgate",
+  "version": "1.0.1",
+  "description": "OpenAI-compatible API server powered by Gemini",
+  "type": "module",
+  "bin": {
+    "gemgate": "server.js"
+  },
+  "files": [
+    "server.js",
+    "models.js"
+  ],
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js --no-tunnel"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "gemini",
+    "openai",
+    "api",
+    "proxy",
+    "gateway",
+    "llm"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@ngrok/ngrok": "^1.7.0",
+    "chalk": "^5.6.2",
+    "ora": "^9.3.0",
+    "ws": "^8.20.0"
+  }
+}

@@ -1,0 +1,13 @@
+@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap");
+
+body {
+  margin: 0;
+  background: #111;
+  font-family: 'Google Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+code, pre, .font-mono {
+  font-family: 'Roboto Mono', monospace;
+}
