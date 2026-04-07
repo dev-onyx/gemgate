@@ -144,7 +144,7 @@ function waiting() { spinner = ora({ text: chalk.dim('Waiting for processor…')
 const server = createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', req.headers['access-control-request-headers'] || '*');
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
 
   const path = req.url?.split('?')[0];

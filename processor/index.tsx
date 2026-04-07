@@ -268,6 +268,20 @@ function useProcessor(cfg: Cfg | null) {
         else if (typeof tc === 'object' && tc?.function?.name) c.toolConfig = { functionCallingConfig: { mode: 'ANY', allowedFunctionNames: [tc.function.name] } };
       }
 
+      c.safetySettings = payload.extra_body?.safety_settings || [
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+      ];
+
+      if (payload.extra_body?.tools) {
+        if (!c.tools) c.tools = [];
+        c.tools.push(...payload.extra_body.tools.map((t: any) => t.google_search ? { googleSearch: {} } : t));
+        if (!c.toolConfig) c.toolConfig = {};
+        c.toolConfig.includeServerSideToolInvocations = true;
+      }
+
       if (stream) {
         const r = await ai.models.generateContentStream({ model, contents, config: c });
         let i = 0;
