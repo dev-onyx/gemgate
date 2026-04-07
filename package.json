@@ -1,6 +1,6 @@
 {
   "name": "gemgate",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "OpenAI-compatible API server powered by Gemini",
   "type": "module",
   "bin": {
