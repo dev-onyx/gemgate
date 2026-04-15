@@ -66,6 +66,7 @@ Create a `.env` file or set env vars:
 | `GEMGATE_KEY` | Fixed API key (auto-generated if unset) |
 | `GEMGATE_PROC` | Fixed processor token (auto-generated if unset) |
 | `NGROK_AUTHTOKEN` | ngrok auth token |
+| `NGROK_DOMAIN` | specificed domain |
 | `PORT` | Port number |
 | `REQUEST_TIMEOUT` | Timeout in ms (default: 120000) |
 

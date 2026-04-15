@@ -201,6 +201,7 @@ function useProcessor(cfg: Cfg | null) {
 
   const process = useCallback(async (socket: WebSocket, m: any) => {
     const { requestId, payload, stream } = m;
+    console.log('--- REQ PAYLOAD ---\n', JSON.stringify(payload, null, 2));
     const t0 = performance.now();
     setStats((s: Stats) => ({ ...s, reqs: s.reqs + 1 }));
 

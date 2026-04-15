@@ -313,7 +313,7 @@ async function tunnel() {
     }
   }
   if (!tok) throw new Error('No ngrok authtoken. Set NGROK_AUTHTOKEN or run: ngrok config add-authtoken <token>');
-  return (await ngrok.forward({ addr: PORT, authtoken: tok })).url();
+  return (await ngrok.forward({ addr: PORT, authtoken: tok, domain: process.env.NGROK_DOMAIN })).url();
 }
 
 // Shutdown
